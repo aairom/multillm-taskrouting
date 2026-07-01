@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>LLM Routing Chat</title>
+<style>
+/* ── Reset & base ─────────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; font-family: -apple-system, "Segoe UI", system-ui, sans-serif;
+  font-size: 14px; line-height: 1.6; background: #0f1117; color: #e2e8f0; }
+
+/* ── Layout ──────────────────────────────────────────────────────────────── */
+.shell { display: flex; height: 100vh; overflow: hidden; }
+.sidebar { width: 280px; min-width: 280px; background: #1a1d26; border-right: 1px solid #2d3148;
+  display: flex; flex-direction: column; overflow: hidden; }
+.main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+/* ── Sidebar ─────────────────────────────────────────────────────────────── */
+.sidebar-header { padding: 18px 16px 12px;
+  border-bottom: 1px solid #2d3148; }
+.sidebar-header h2 { font-size: 13px; font-weight: 600; color: #94a3b8;
+  text-transform: uppercase; letter-spacing: .08em; margin-bottom: 4px; }
+.brand { font-size: 16px; font-weight: 700; color: #e2e8f0; display: flex;
+  align-items: center; gap: 8px; }
+.brand-dot { width: 8px; height: 8px; border-radius: 50%; background: #22c55e;
+  box-shadow: 0 0 6px #22c55e; animation: pulse 2s infinite; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+
+.section-label { font-size: 11px; font-weight: 600; color: #64748b;
+  text-transform: uppercase; letter-spacing: .08em; padding: 14px 16px 6px; }
+
+/* model cards */
+.model-card { margin: 4px 10px; padding: 10px 12px; border-radius: 8px;
+  border: 1px solid #2d3148; background: #12151f; cursor: default; }
+.model-card .mc-top { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.tier-badge { width: 22px; height: 22px; border-radius: 50%; display: flex;
+  align-items: center; justify-content: center; font-size: 10px; font-weight: 700; }
+.t1 { background: #14532d; color: #4ade80; }
+.t2 { background: #1e3a5f; color: #60a5fa; }
+.t3 { background: #3b1f5e; color: #c084fc; }
+.t4 { background: #7f1d1d; color: #f87171; }
+.mc-name { font-size: 12px; font-weight: 600; flex: 1; }
+.mc-model { font-size: 10px; color: #64748b; font-family: "Menlo","Consolas",monospace; }
+.qual-row { display: flex; justify-content: space-between; font-size: 10px; color: #94a3b8; margin-top: 4px; }
+.qual-bar { height: 3px; border-radius: 2px; margin-top: 3px; }
+.t1-bar { background: linear-gradient(90deg,#22c55e,#4ade80); }
+.t2-bar { background: linear-gradient(90deg,#3b82f6,#60a5fa); }
+.t3-bar { background: linear-gradient(90deg,#a855f7,#c084fc); }
+.t4-bar { background: linear-gradient(90deg,#ef4444,#f87171); }
+
+/* stats */
+.stats-box { margin: 6px 10px; padding: 10px 12px; border-radius: 8px;
+  border: 1px solid #2d3148; background: #12151f; }
+.stats-row { display: flex; justify-content: space-between; font-size: 11px;
+  color: #94a3b8; padding: 2px 0; }
+.stats-val { font-weight: 600; color: #e2e8f0; }
+
+/* ── Topbar ──────────────────────────────────────────────────────────────── */
+.topbar { display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 20px; background: #1a1d26;
+  border-bottom: 1px solid #2d3148; flex-shrink: 0; }
+.topbar-title { font-size: 15px; font-weight: 700; color: #e2e8f0; }
+.topbar-sub { font-size: 11px; color: #64748b; margin-top: 1px; }
+.dry-toggle { display: flex; align-items: center; gap: 7px; font-size: 12px; color: #94a3b8; cursor: pointer; }
+.dry-toggle input { accent-color: #3b82f6; cursor: pointer; }
+
+/* ── Chat thread ─────────────────────────────────────────────────────────── */
+.thread { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 20px; }
+.thread::-webkit-scrollbar { width: 6px; }
+.thread::-webkit-scrollbar-track { background: transparent; }
+.thread::-webkit-scrollbar-thumb { background: #2d3148; border-radius: 3px; }
+
+/* welcome */
+.welcome { text-align: center; padding: 40px 20px; }
+.welcome-icon { font-size: 36px; margin-bottom: 12px; }
+.welcome h2 { font-size: 18px; font-weight: 700; margin-bottom: 8px; color: #e2e8f0; }
+.welcome p { font-size: 13px; color: #64748b; max-width: 420px; margin: 0 auto 6px; }
+.welcome .examples { display: flex; flex-direction: column; gap: 6px; margin-top: 16px; }
+.example-chip { background: #1a1d26; border: 1px solid #2d3148; border-radius: 20px;
+  padding: 6px 14px; font-size: 12px; color: #94a3b8; cursor: pointer;
+  transition: border-color .15s, color .15s; text-align: left; display: inline-block; }
+.example-chip:hover { border-color: #3b82f6; color: #60a5fa; }
+
+/* user bubble */
+.msg-user { display: flex; justify-content: flex-end; }
+.bubble-user { background: #1e3a8a; border: 1px solid #2563eb; color: #e2e8f0;
+  padding: 10px 14px; border-radius: 16px 16px 4px 16px; max-width: 70%;
+  font-size: 13px; line-height: 1.5; white-space: pre-wrap; word-break: break-word; }
+
+/* assistant card */
+.msg-assistant { display: flex; flex-direction: column; gap: 10px; }
+
+/* routing analysis card */
+.routing-card { background: #1a1d26; border: 1px solid #2d3148; border-radius: 12px; overflow: hidden; }
+.rc-header { display: flex; align-items: center; gap: 8px; padding: 10px 14px;
+  background: #12151f; border-bottom: 1px solid #2d3148; cursor: pointer;
+  user-select: none; }
+.rc-header-icon { font-size: 14px; }
+.rc-title { font-size: 12px; font-weight: 600; color: #94a3b8; flex: 1; }
+.rc-total { font-size: 11px; color: #64748b; }
+.rc-chevron { font-size: 10px; color: #64748b; transition: transform .2s; }
+.rc-chevron.open { transform: rotate(180deg); }
+.rc-body { padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; }
+.rc-body.hidden { display: none; }
+
+/* sub-task routing row */
+.subtask-row { background: #12151f; border: 1px solid #2d3148; border-radius: 8px; padding: 10px 12px; }
+.str-top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+.task-badge { padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: .05em; }
+.tb-documentation  { background: #164e63; color: #67e8f9; }
+.tb-code_generation { background: #14532d; color: #4ade80; }
+.tb-code_review    { background: #7f1d1d; color: #fca5a5; }
+.tb-reasoning      { background: #3b1f5e; color: #c084fc; }
+.tb-qa_simple      { background: #1e3a5f; color: #93c5fd; }
+.tb-summarisation  { background: #422006; color: #fbbf24; }
+.model-badge { padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: 600; }
+.mb-t1 { background: #14532d; color: #4ade80; }
+.mb-t2 { background: #1e3a5f; color: #60a5fa; }
+.mb-t3 { background: #3b1f5e; color: #c084fc; }
+.mb-t4 { background: #7f1d1d; color: #f87171; }
+.str-provider { font-size: 11px; color: #64748b; margin-left: auto; }
+.str-metrics { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+.metric { display: flex; flex-direction: column; gap: 2px; }
+.metric-label { font-size: 10px; color: #64748b; }
+.metric-value { font-size: 12px; font-weight: 600; color: #e2e8f0; }
+.complexity-bar { height: 4px; border-radius: 2px; background: #2d3148; margin-top: 3px; overflow: hidden; }
+.complexity-fill { height: 100%; border-radius: 2px; background: linear-gradient(90deg,#22c55e,#f59e0b,#ef4444); transition: width .5s; }
+.utility-eq { font-size: 10px; color: #64748b; margin-top: 6px; font-family: "Menlo","Consolas",monospace; }
+.utility-eq span { color: #a78bfa; }
+
+/* response section */
+.response-card { background: #1a1d26; border: 1px solid #2d3148; border-radius: 12px; overflow: hidden; }
+.resp-tabs { display: flex; border-bottom: 1px solid #2d3148; background: #12151f; overflow-x: auto; }
+.resp-tab { padding: 8px 14px; font-size: 12px; font-weight: 500; color: #64748b;
+  cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap;
+  transition: color .15s, border-color .15s; }
+.resp-tab.active { color: #e2e8f0; border-bottom-color: #3b82f6; }
+.resp-tab:hover:not(.active) { color: #94a3b8; }
+.resp-panel { padding: 14px 16px; display: none; }
+.resp-panel.active { display: block; }
+.resp-meta { display: flex; gap: 12px; margin-bottom: 10px; flex-wrap: wrap; }
+.resp-chip { font-size: 10px; color: #64748b; background: #12151f;
+  border: 1px solid #2d3148; border-radius: 6px; padding: 2px 7px; }
+
+/* markdown rendering */
+.md-body { font-size: 13px; line-height: 1.7; color: #cbd5e1; }
+.md-body h1,.md-body h2,.md-body h3,.md-body h4 { color: #e2e8f0; margin: 14px 0 6px; font-weight: 600; }
+.md-body h1 { font-size: 16px; } .md-body h2 { font-size: 15px; } .md-body h3 { font-size: 14px; }
+.md-body p { margin: 6px 0; }
+.md-body code { background: #0f1117; border: 1px solid #2d3148; border-radius: 4px;
+  padding: 1px 5px; font-family: "Menlo","Consolas",monospace; font-size: 12px; color: #a78bfa; }
+.md-body pre { background: #0f1117; border: 1px solid #2d3148; border-radius: 8px;
+  padding: 12px 14px; overflow-x: auto; margin: 8px 0; }
+.md-body pre code { background: none; border: none; padding: 0; color: #a3e635;
+  font-size: 12px; line-height: 1.6; }
+.md-body ul,.md-body ol { padding-left: 20px; margin: 6px 0; }
+.md-body li { margin: 3px 0; }
+.md-body strong { color: #e2e8f0; font-weight: 600; }
+.md-body em { color: #94a3b8; font-style: italic; }
+.md-body hr { border: none; border-top: 1px solid #2d3148; margin: 12px 0; }
+.md-body blockquote { border-left: 3px solid #3b82f6; padding-left: 12px; color: #94a3b8; margin: 8px 0; }
+
+/* thinking indicator */
+.thinking { display: flex; align-items: center; gap: 10px; padding: 14px 16px;
+  background: #1a1d26; border: 1px solid #2d3148; border-radius: 12px; }
+.dots { display: flex; gap: 5px; }
+.dot { width: 7px; height: 7px; border-radius: 50%; background: #3b82f6; animation: bounce .9s infinite; }
+.dot:nth-child(2){animation-delay:.15s} .dot:nth-child(3){animation-delay:.3s}
+@keyframes bounce{0%,80%,100%{transform:translateY(0)}40%{transform:translateY(-8px)}}
+.thinking-label { font-size: 12px; color: #64748b; }
+
+/* ── Input area ──────────────────────────────────────────────────────────── */
+.input-area { padding: 14px 20px; border-top: 1px solid #2d3148; background: #1a1d26; flex-shrink: 0; }
+.input-row { display: flex; gap: 10px; align-items: flex-end; }
+.input-wrap { flex: 1; position: relative; }
+textarea { width: 100%; background: #12151f; border: 1px solid #2d3148; border-radius: 10px;
+  color: #e2e8f0; font-size: 13px; padding: 10px 14px; resize: none; outline: none;
+  font-family: inherit; line-height: 1.5; min-height: 44px; max-height: 160px;
+  transition: border-color .15s; }
+textarea:focus { border-color: #3b82f6; }
+textarea::placeholder { color: #475569; }
+.send-btn { width: 42px; height: 42px; border-radius: 10px; background: #2563eb;
+  border: none; cursor: pointer; display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; transition: background .15s; }
+.send-btn:hover:not(:disabled) { background: #1d4ed8; }
+.send-btn:disabled { background: #1e3a5f; cursor: not-allowed; }
+.send-btn svg { width: 18px; height: 18px; fill: white; }
+.input-hint { font-size: 11px; color: #475569; margin-top: 5px; }
+
+/* ── Utility formula box ─────────────────────────────────────────────────── */
+.formula-box { margin: 6px 10px 10px; padding: 10px 12px; border-radius: 8px;
+  border: 1px solid #2d3148; background: #12151f; font-size: 11px; color: #64748b; }
+.formula-box code { color: #a78bfa; font-family: "Menlo","Consolas",monospace; }
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <!-- ── Sidebar ─────────────────────────────────────────────────────────── -->
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <div class="brand"><div class="brand-dot"></div> LLM Router</div>
+      <div style="font-size:11px;color:#64748b;margin-top:3px;">LiteLLM → Ollama Gateway</div>
+    </div>
+
+    <div class="section-label">Model Registry</div>
+    <div id="model-registry">
+      <!-- filled by JS -->
+    </div>
+
+    <div class="formula-box">
+      Routing: <code>U = 0.60·Q − 0.40·C</code><br>
+      Q = quality score · C = cost/1k (norm.)<br>
+      Highest U that meets threshold wins.
+    </div>
+
+    <div class="section-label">Session Stats</div>
+    <div class="stats-box" id="stats-box">
+      <div class="stats-row"><span>Total calls</span><span class="stats-val" id="s-total">—</span></div>
+      <div class="stats-row"><span>Avg quality</span><span class="stats-val" id="s-quality">—</span></div>
+      <div class="stats-row"><span>Total cost</span><span class="stats-val" id="s-cost">—</span></div>
+    </div>
+  </aside>
+
+  <!-- ── Main ────────────────────────────────────────────────────────────── -->
+  <div class="main">
+
+    <!-- topbar -->
+    <div class="topbar">
+      <div>
+        <div class="topbar-title">🔀 Intelligent LLM Routing — Live Demo</div>
+        <div class="topbar-sub">Type a prompt · The router picks the optimal Ollama model · See the reasoning</div>
+      </div>
+      <label class="dry-toggle">
+        <input type="checkbox" id="dry-run-toggle" />
+        Dry-run (routing only)
+      </label>
+    </div>
+
+    <!-- thread -->
+    <div class="thread" id="thread">
+      <div class="welcome" id="welcome">
+        <div class="welcome-icon">🔀</div>
+        <h2>LLM Routing in Practice</h2>
+        <p>Ask for <strong>documentation</strong>, <strong>code</strong>, <strong>analysis</strong> or combine them with <em>AND</em> — the router selects the right Ollama model for each sub-task.</p>
+        <p style="margin-top:8px;">The <strong>routing card</strong> shows exactly <em>why</em> each model was chosen: task type, complexity score, utility function result.</p>
+        <div class="examples">
+          <div class="example-chip" onclick="fillPrompt(this)">Write the API reference documentation for our REST /users endpoints</div>
+          <div class="example-chip" onclick="fillPrompt(this)">Implement an OAuth2 Bearer-token middleware in Python FastAPI</div>
+          <div class="example-chip" onclick="fillPrompt(this)">Write the API docs AND implement the OAuth2 middleware</div>
+          <div class="example-chip" onclick="fillPrompt(this)">What is the best architecture for a microservices payment gateway? Evaluate the trade-offs</div>
+          <div class="example-chip" onclick="fillPrompt(this)">Summarise the key benefits of using a message queue AND implement a RabbitMQ consumer in Python</div>
+          <div class="example-chip" onclick="fillPrompt(this)">Do a security audit of this JWT token validation code AND write a README for the project</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- input -->
+    <div class="input-area">
+      <div class="input-row">
+        <div class="input-wrap">
+          <textarea id="prompt-input" rows="1"
+            placeholder="Ask for docs, code, architecture… combine with AND for multi-task routing"
+            onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
+        </div>
+        <button class="send-btn" id="send-btn" onclick="sendMessage()" title="Send">
+          <svg viewBox="0 0 24 24"><path d="M2 21l21-9L2 3v7l15 2-15 2z"/></svg>
+        </button>
+      </div>
+      <div class="input-hint">Enter to send · Shift+Enter for new line · Use <strong>AND</strong> to combine tasks</div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ── helpers ──────────────────────────────────────────────────────────────────
+
+const TIER_COLORS = { 1: 'mb-t1', 2: 'mb-t2', 3: 'mb-t3', 4: 'mb-t4' };
+const TIER_BAR    = { 1: 't1-bar', 2: 't2-bar', 3: 't3-bar', 4: 't4-bar' };
+const TIER_BADGE  = { 1: 't1', 2: 't2', 3: 't3', 4: 't4' };
+const TIER_NAMES  = { 1: 'T1 · Light', 2: 'T2 · Medium', 3: 'T3 · Balanced', 4: 'T4 · Heavy' };
+
+function escHtml(s) {
+  return String(s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;');
+}
+
+// lightweight markdown → HTML renderer
+function renderMd(text) {
+  if (!text) return '<em style="color:#475569">No response (dry-run mode)</em>';
+  let html = escHtml(text);
+  // code blocks
+  html = html.replace(/```(\w*)\n?([\s\S]*?)```/g, (_,lang,code)=>
+    `<pre><code>${code.trimEnd()}</code></pre>`);
+  // inline code
+  html = html.replace(/`([^`]+)`/g, (_,c) => `<code>${c}</code>`);
+  // bold
+  html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  // italic
+  html = html.replace(/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/g, '<em>$1</em>');
+  // headers
+  html = html.replace(/^#### (.+)$/gm, '<h4>$1</h4>');
+  html = html.replace(/^### (.+)$/gm,  '<h3>$1</h3>');
+  html = html.replace(/^## (.+)$/gm,   '<h2>$1</h2>');
+  html = html.replace(/^# (.+)$/gm,    '<h1>$1</h1>');
+  // hr
+  html = html.replace(/^---+$/gm, '<hr>');
+  // blockquote
+  html = html.replace(/^&gt; (.+)$/gm, '<blockquote>$1</blockquote>');
+  // unordered list items
+  html = html.replace(/^\s*[-*] (.+)$/gm, '<li>$1</li>');
+  html = html.replace(/(<li>.*<\/li>\n?)+/g, m => `<ul>${m}</ul>`);
+  // ordered list
+  html = html.replace(/^\s*\d+\. (.+)$/gm, '<li>$1</li>');
+  // paragraphs: wrap lines that are not already tags
+  html = html.split('\n').map(line => {
+    if (/^<(h[1-4]|ul|ol|li|pre|hr|blockquote)/.test(line.trim()) || line.trim() === '') return line;
+    return `<p>${line}</p>`;
+  }).join('\n');
+  return html;
+}
+
+function autoResize(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 160) + 'px';
+}
+
+function fillPrompt(el) {
+  const ta = document.getElementById('prompt-input');
+  ta.value = el.textContent.trim();
+  autoResize(ta);
+  ta.focus();
+}
+
+function handleKey(e) {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+}
+
+function scrollBottom() {
+  const t = document.getElementById('thread');
+  t.scrollTo({ top: t.scrollHeight, behavior: 'smooth' });
+}
+
+// ── Model registry sidebar ────────────────────────────────────────────────────
+async function loadModels() {
+  try {
+    const res = await fetch('/api/models');
+    const models = await res.json();
+    const el = document.getElementById('model-registry');
+    el.innerHTML = models.map(m => {
+      const qLow  = Math.round(m.quality_at_low  * 100);
+      const qHigh = Math.round(m.quality_at_high * 100);
+      const bar   = TIER_BAR[m.tier];
+      const badge = TIER_BADGE[m.tier];
+      return `<div class="model-card">
+        <div class="mc-top">
+          <div class="tier-badge ${badge}">${m.tier}</div>
+          <div>
+            <div class="mc-name">${escHtml(m.provider)}</div>
+            <div class="mc-model">${escHtml(m.ollama_model)}</div>
+          </div>
+        </div>
+        <div class="qual-row">
+          <span>Q@0.1: <strong>${qLow}%</strong></span>
+          <span>Q@0.9: <strong>${qHigh}%</strong></span>
+          <span>Cost: <strong>${m.cost_per_1k.toFixed(2)}</strong></span>
+        </div>
+        <div class="qual-bar ${bar}" style="width:${qHigh}%"></div>
+      </div>`;
+    }).join('');
+  } catch(e) { console.warn('models load failed', e); }
+}
+
+async function loadStats() {
+  try {
+    const res  = await fetch('/api/stats');
+    const data = await res.json();
+    document.getElementById('s-total').textContent   = data.total_calls ?? 0;
+    document.getElementById('s-quality').textContent = data.avg_quality != null ? (data.avg_quality * 100).toFixed(1) + '%' : '—';
+    document.getElementById('s-cost').textContent    = data.total_cost != null ? data.total_cost.toFixed(6) : '—';
+  } catch(e) {}
+}
+
+// ── Send message ──────────────────────────────────────────────────────────────
+async function sendMessage() {
+  const ta      = document.getElementById('prompt-input');
+  const prompt  = ta.value.trim();
+  if (!prompt) return;
+
+  const dryRun  = document.getElementById('dry-run-toggle').checked;
+  const thread  = document.getElementById('thread');
+  const welcome = document.getElementById('welcome');
+  if (welcome) welcome.remove();
+
+  // user bubble
+  const userDiv = document.createElement('div');
+  userDiv.className = 'msg-user';
+  userDiv.innerHTML = `<div class="bubble-user">${escHtml(prompt)}</div>`;
+  thread.appendChild(userDiv);
+
+  // thinking indicator
+  const thinkDiv = document.createElement('div');
+  thinkDiv.className = 'msg-assistant';
+  thinkDiv.innerHTML = `
+    <div class="thinking">
+      <div class="dots"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+      <span class="thinking-label">${dryRun ? 'Analysing routing…' : 'Routing → calling Ollama models in parallel…'}</span>
+    </div>`;
+  thread.appendChild(thinkDiv);
+
+  ta.value = '';
+  autoResize(ta);
+  document.getElementById('send-btn').disabled = true;
+  scrollBottom();
+
+  try {
+    const res  = await fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt, dry_run: dryRun }),
+    });
+    const data = await res.json();
+
+    thinkDiv.remove();
+    thread.appendChild(buildResponseCard(data));
+    scrollBottom();
+    await loadStats();
+  } catch(err) {
+    thinkDiv.remove();
+    const errDiv = document.createElement('div');
+    errDiv.className = 'msg-assistant';
+    errDiv.innerHTML = `<div class="routing-card" style="border-color:#7f1d1d">
+      <div class="rc-header" style="background:#450a0a">
+        <span>⚠ Error</span>
+        <span style="color:#fca5a5;font-size:12px">${escHtml(String(err))}</span>
+      </div></div>`;
+    thread.appendChild(errDiv);
+    scrollBottom();
+  } finally {
+    document.getElementById('send-btn').disabled = false;
+  }
+}
+
+// ── Build response card ───────────────────────────────────────────────────────
+function buildResponseCard(data) {
+  const wrapper = document.createElement('div');
+  wrapper.className = 'msg-assistant';
+
+  const subTasks  = data.sub_tasks || [];
+  const totalMs   = data.total_ms;
+  const isDry     = data.dry_run;
+
+  // ── Routing analysis card ─────────────────────────────────────────────────
+  const rcId   = 'rc-' + Date.now();
+  const nTasks = subTasks.length;
+  const routingHtml = subTasks.map((t, i) => {
+    const tier      = tierFromLabel(t.model);
+    const mbClass   = TIER_COLORS[tier] || 'mb-t4';
+    const tbClass   = 'tb-' + (t.task_type || 'qa_simple');
+    const cxPct     = Math.round((t.complexity || 0) * 100);
+    const qPct      = t.quality != null ? Math.round(t.quality * 100) : '—';
+    const latency   = t.latency_ms != null ? t.latency_ms + ' ms' : '—';
+    const tokens    = t.out_tokens != null ? t.out_tokens + ' tok' : '—';
+    const u         = t.utility  != null ? (t.utility > 0 ? '+' : '') + t.utility.toFixed(4) : '—';
+    const q         = t.quality  != null ? t.quality.toFixed(4) : '—';
+    const cost      = t.cost_per_1k != null ? t.cost_per_1k : 0;
+    const thr       = t.threshold != null ? t.threshold.toFixed(2) : '—';
+    const ollamaM   = t.ollama_model || '';
+    const taskLabel = (t.task_type || '').replace(/_/g,' ');
+
+    return `<div class="subtask-row">
+      <div class="str-top">
+        <span class="task-badge ${tbClass}">${taskLabel}</span>
+        <span class="model-badge ${mbClass}">${escHtml(t.model || '')}</span>
+        <span class="str-provider">${escHtml(t.provider || '')} · <code style="font-size:10px;color:#64748b">${escHtml(ollamaM)}</code></span>
+      </div>
+      <div class="str-metrics">
+        <div class="metric">
+          <span class="metric-label">Complexity</span>
+          <span class="metric-value">${cxPct}%</span>
+          <div class="complexity-bar"><div class="complexity-fill" style="width:${cxPct}%"></div></div>
+        </div>
+        <div class="metric">
+          <span class="metric-label">Quality (Q)</span>
+          <span class="metric-value">${qPct}%</span>
+        </div>
+        <div class="metric">
+          <span class="metric-label">Latency / Tokens</span>
+          <span class="metric-value">${latency} · ${tokens}</span>
+        </div>
+      </div>
+      <div class="utility-eq">
+        U = 0.60 × Q − 0.40 × C = <span>${u}</span>
+        &nbsp;|&nbsp; threshold ≥ ${thr}
+        &nbsp;|&nbsp; tier: <span>T${tier}</span>
+      </div>
+    </div>`;
+  }).join('');
+
+  const totalLabel = totalMs != null ? totalMs + ' ms total' : 'dry-run';
+
+  const routingCard = `
+    <div class="routing-card">
+      <div class="rc-header" onclick="toggleRc('${rcId}')">
+        <span class="rc-header-icon">🔀</span>
+        <span class="rc-title">Routing Analysis — ${nTasks} sub-task${nTasks!==1?'s':''} detected</span>
+        <span class="rc-total">${totalLabel}</span>
+        <span class="rc-chevron open" id="${rcId}-chev">▼</span>
+      </div>
+      <div class="rc-body" id="${rcId}">${routingHtml}</div>
+    </div>`;
+
+  // ── Response tabs card ────────────────────────────────────────────────────
+  const tabsId = 'tabs-' + Date.now();
+  const tabs = subTasks.map((t, i) => {
+    const tier    = tierFromLabel(t.model);
+    const mbClass = TIER_COLORS[tier] || 'mb-t4';
+    const label   = (t.task_type || '').replace(/_/g,' ');
+    return `<div class="resp-tab${i===0?' active':''}" onclick="switchTab('${tabsId}',${i})"
+      data-tab="${i}"><span class="model-badge ${mbClass}" style="margin-right:5px">T${tier}</span>${label}</div>`;
+  }).join('') + (subTasks.length > 1
+    ? `<div class="resp-tab" onclick="switchTab('${tabsId}',-1)" data-tab="-1">⊞ Merged</div>` : '');
+
+  const panels = subTasks.map((t, i) => {
+    const latency = t.latency_ms != null ? t.latency_ms + ' ms' : '—';
+    const tokens  = t.out_tokens != null ? t.out_tokens + ' tokens' : '—';
+    const cost    = t.cost_units != null ? t.cost_units : null;
+    return `<div class="resp-panel${i===0?' active':''}" data-panel="${i}">
+      <div class="resp-meta">
+        <span class="resp-chip">📡 ${escHtml(t.provider||'')}</span>
+        <span class="resp-chip">⏱ ${latency}</span>
+        <span class="resp-chip">📝 ${tokens}</span>
+        ${cost != null ? `<span class="resp-chip">💰 ${cost.toFixed(6)}</span>` : ''}
+        ${isDry ? '<span class="resp-chip" style="color:#f59e0b">🔍 Dry-run</span>' : ''}
+      </div>
+      <div class="md-body">${renderMd(t.response)}</div>
+    </div>`;
+  }).join('');
+
+  const mergedPanel = subTasks.length > 1
+    ? `<div class="resp-panel" data-panel="-1">
+        <div class="resp-meta"><span class="resp-chip">⊞ All sub-tasks merged</span></div>
+        <div class="md-body">${renderMd(data.merged)}</div>
+       </div>` : '';
+
+  const respCard = `
+    <div class="response-card">
+      <div class="resp-tabs" id="${tabsId}-tabs">${tabs}</div>
+      ${panels}${mergedPanel}
+    </div>`;
+
+  wrapper.innerHTML = routingCard + respCard;
+  return wrapper;
+}
+
+// ── Tab switching ──────────────────────────────────────────────────────────────
+function switchTab(baseId, idx) {
+  const tabsEl = document.getElementById(baseId + '-tabs');
+  const card   = tabsEl.closest('.response-card');
+  card.querySelectorAll('.resp-tab').forEach(t => {
+    t.classList.toggle('active', parseInt(t.dataset.tab) === idx);
+  });
+  card.querySelectorAll('.resp-panel').forEach(p => {
+    p.classList.toggle('active', parseInt(p.dataset.panel) === idx);
+  });
+}
+
+// ── Routing card collapse ─────────────────────────────────────────────────────
+function toggleRc(id) {
+  const body = document.getElementById(id);
+  const chev = document.getElementById(id + '-chev');
+  body.classList.toggle('hidden');
+  chev.classList.toggle('open');
+}
+
+// ── Tier from label ───────────────────────────────────────────────────────────
+function tierFromLabel(label) {
+  if (!label) return 4;
+  if (label.includes('light'))    return 1;
+  if (label.includes('medium'))   return 2;
+  if (label.includes('balanced')) return 3;
+  return 4;
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+loadModels();
+loadStats();
+setInterval(loadStats, 15000);
+</script>
+</body>
+</html>

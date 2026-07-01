@@ -1,0 +1,68 @@
+INFO:     Started server process [86641]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8081 (Press CTRL+C to quit)
+INFO:     127.0.0.1:51861 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51866 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51868 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51872 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51872 - "GET /api/models HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51875 - "GET /api/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51875 - "GET /favicon.ico HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:51884 - "GET /api/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51891 - "GET /api/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51891 - "POST /api/chat HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51891 - "GET /api/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51907 - "GET /api/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51916 - "GET /api/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51918 - "GET /api/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51921 - "GET /api/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51924 - "GET /api/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51927 - "GET /api/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51929 - "GET /api/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51933 - "GET /api/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51935 - "GET /api/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51938 - "GET /api/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51940 - "GET /api/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51942 - "GET /api/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51946 - "GET /api/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51948 - "GET /api/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51950 - "GET /api/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51954 - "GET /api/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51957 - "GET /api/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51959 - "GET /api/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51962 - "GET /api/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51975 - "GET /api/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51988 - "GET /api/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51992 - "GET /api/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51996 - "GET /api/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51998 - "GET /api/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52001 - "GET /api/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52003 - "GET /api/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52006 - "GET /api/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52015 - "GET /api/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52034 - "GET /api/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52049 - "GET /api/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52061 - "GET /api/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52071 - "GET /api/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52086 - "GET /api/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52122 - "GET /api/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52140 - "GET /api/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52145 - "GET /api/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52148 - "GET /api/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52153 - "GET /api/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52160 - "GET /api/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52173 - "GET /api/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52175 - "GET /api/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52180 - "GET /api/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52188 - "GET /api/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52192 - "GET /api/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52200 - "GET /api/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52207 - "GET /api/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52209 - "GET /api/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52213 - "GET /api/stats HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52216 - "GET /api/stats HTTP/1.1" 200 OK
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [86641]

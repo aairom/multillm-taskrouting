@@ -1,0 +1,34 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.Python
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual environment
+.venv/
+venv/
+env/
+
+# Environment secrets
+.env
+
+# Folders starting with underscore (local data, sources, etc.)
+_*/
+
+# Output (keep directory, ignore content)
+output/*.jsonl
+output/*.log
+output/*.json
+
+# Editor
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# Playwright MCP
+.playwright-mcp/
