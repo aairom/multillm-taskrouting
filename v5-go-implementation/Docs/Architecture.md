@@ -17,7 +17,7 @@ flowchart TD
     subgraph Echo["Echo HTTP Server  (main.go)"]
         POST["/api/chat"]
         WS["/ws/telemetry"]
-        StaticAPI["/api/models\n/api/stats\n/api/health\n/api/telemetry"]
+        StaticAPI["/api/models  /api/stats\n/api/health  /api/telemetry\n/api/failover/events"]
     end
 
     subgraph Orchestrator["orchestrator.Handle()"]

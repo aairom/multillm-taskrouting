@@ -65,7 +65,7 @@ ollama pull mistral-small3.2:latest # heavy (Mistral AI)
 
 ```bash
 cd v5-go-implementation
-cp .env.example .env      # edit if needed
+cp env.example .env       # edit if needed
 bash scripts/start.sh
 # → http://localhost:8080
 ```
@@ -100,16 +100,16 @@ bash scripts/stop.sh
 
 ## API Reference
 
-| Method | Path                    | Description                                |
-|--------|-------------------------|--------------------------------------------|
-| GET    | `/`                     | Chat + live dashboard UI                   |
-| POST   | `/api/chat`             | Route a prompt (supports `dry_run: true`)  |
-| GET    | `/api/models`           | Full model registry with live health       |
-| GET    | `/api/stats`            | Aggregated routing statistics              |
-| GET    | `/api/health`           | Liveness + circuit-breaker snapshot        |
-| GET    | `/api/telemetry`        | Dynamic parameters + recent records        |
-| GET    | `/api/failover/events`  | Recent failover event log                  |
-| WS     | `/ws/telemetry`         | Real-time event stream                     |
+| Method | Path                     | Description                                 |
+|--------|--------------------------|---------------------------------------------|
+| GET    | `/`                      | Chat + live dashboard UI                    |
+| POST   | `/api/chat`              | Route a prompt (supports `dry_run: true`)   |
+| GET    | `/api/models`            | Full model registry with live health        |
+| GET    | `/api/stats`             | Aggregated routing statistics               |
+| GET    | `/api/health`            | Liveness + circuit-breaker snapshot         |
+| GET    | `/api/telemetry`         | Dynamic parameters + recent records         |
+| GET    | `/api/failover/events`   | Recent failover event log                   |
+| WS     | `/ws/telemetry`          | Real-time event stream                      |
 
 ---
 
@@ -119,6 +119,8 @@ bash scripts/stop.sh
 v5-go-implementation/
 ├── main.go                          # Echo server, HTTP handlers, WebSocket
 ├── go.mod
+├── go.sum
+├── env.example                      # copy to .env and edit
 ├── internal/
 │   ├── registry/    registry.go     # 4-tier model pool + failover chains
 │   ├── classifier/  classifier.go   # Prompt splitting + task classification

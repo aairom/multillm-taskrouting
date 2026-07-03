@@ -22,7 +22,12 @@ ollama pull mistral-small3.2:latest
 cd v5-go-implementation
 ```
 
-Create a `.env` file (optional — defaults work with Ollama on localhost):
+Create a `.env` file (optional — defaults work with Ollama on localhost).
+Copy the provided example:
+
+```bash
+cp env.example .env
+```
 
 ```dotenv
 PORT=8080
@@ -115,7 +120,7 @@ bash scripts/stop.sh
 
 ```bash
 cd v5-go-implementation
-go mod tidy
+go mod tidy          # only needed once, or after changing go.mod
 go build -o routing-v5 .
-./routing-v5 --help   # no CLI flags — use .env
+./routing-v5         # no CLI flags — all config via .env / env vars
 ```

@@ -2,18 +2,17 @@
 //
 // HTTP endpoints:
 //
-//	GET  /                   → chat + dashboard UI (static/index.html)
-//	POST /api/chat           → route prompt, execute LLMs, return enriched JSON
-//	GET  /api/models         → model registry (tiers, failover chains, health)
-//	GET  /api/stats          → aggregated routing feedback statistics
-//	GET  /api/health         → liveness + circuit-breaker snapshot
-//	GET  /api/telemetry      → current dynamic parameters (all model × task pairs)
+//	GET  /                    → chat + dashboard UI (static/index.html)
+//	POST /api/chat            → route prompt, execute LLMs, return enriched JSON
+//	GET  /api/models          → model registry (tiers, failover chains, health)
+//	GET  /api/stats           → aggregated routing feedback statistics
+//	GET  /api/health          → liveness + circuit-breaker snapshot
+//	GET  /api/telemetry       → current dynamic parameters (all model × task pairs)
 //	GET  /api/failover/events → recent failover event log
-//	GET  /api/docs           → Swagger UI (via Echo)
 //
 // WebSocket:
 //
-//	WS  /ws/telemetry        → real-time event stream
+//	WS   /ws/telemetry        → real-time event stream
 package main
 
 import (
