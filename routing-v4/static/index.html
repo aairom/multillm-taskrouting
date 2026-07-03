@@ -1,0 +1,889 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>routing-v4 — Multi-LLM Live Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+/* ── Reset & base ────────────────────────────────────────────────────── */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;font-family:-apple-system,"Segoe UI",system-ui,sans-serif;
+  font-size:13px;line-height:1.55;background:#0b0d14;color:#dde2ee}
+button{cursor:pointer;border:none;outline:none}
+textarea,input{outline:none;border:none}
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:#252a3a;border-radius:3px}
+
+/* ── Shell layout ────────────────────────────────────────────────────── */
+.shell{display:grid;height:100vh;overflow:hidden;
+  grid-template-columns:270px 1fr;
+  grid-template-rows:48px 1fr;
+  grid-template-areas:"topbar topbar" "sidebar main"}
+
+/* ── Top bar ─────────────────────────────────────────────────────────── */
+.topbar{grid-area:topbar;display:flex;align-items:center;gap:12px;
+  padding:0 18px;background:#12151f;border-bottom:1px solid #1e2235;z-index:10}
+.brand{font-size:15px;font-weight:700;color:#e2e8f0;display:flex;align-items:center;gap:8px}
+.brand-badge{background:#1a2a4a;border:1px solid #2d4a7a;color:#60a5fa;
+  font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px;letter-spacing:.06em}
+.ws-dot{width:8px;height:8px;border-radius:50%;background:#475569;
+  box-shadow:0 0 0 0 #47556940;transition:background .3s}
+.ws-dot.live{background:#22c55e;box-shadow:0 0 6px #22c55e80;animation:pulse 2s infinite}
+.ws-dot.error{background:#ef4444}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.45}}
+.ws-label{font-size:11px;color:#64748b}
+.topbar-right{margin-left:auto;display:flex;align-items:center;gap:14px}
+.dry-toggle{display:flex;align-items:center;gap:6px;font-size:11px;color:#94a3b8}
+.dry-toggle input{accent-color:#3b82f6}
+
+/* ── Sidebar ─────────────────────────────────────────────────────────── */
+.sidebar{grid-area:sidebar;background:#0f1220;border-right:1px solid #1e2235;
+  overflow-y:auto;display:flex;flex-direction:column;gap:0}
+.sec-head{font-size:10px;font-weight:700;color:#475569;text-transform:uppercase;
+  letter-spacing:.1em;padding:14px 14px 6px}
+
+/* model cards */
+.model-card{margin:3px 8px;padding:10px 11px;border-radius:8px;
+  border:1px solid #1e2235;background:#0b0d14}
+.mc-top{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.tier-badge{width:22px;height:22px;border-radius:50%;display:flex;
+  align-items:center;justify-content:center;font-size:10px;font-weight:800;flex-shrink:0}
+.t1{background:#14532d;color:#4ade80} .t2{background:#1e3a5f;color:#60a5fa}
+.t3{background:#3b1f5e;color:#c084fc} .t4{background:#7f1d1d;color:#f87171}
+.mc-info{flex:1;min-width:0}
+.mc-name{font-size:11px;font-weight:700;color:#e2e8f0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mc-prov{font-size:10px;color:#475569;font-family:Menlo,monospace}
+.health-pill{font-size:9px;font-weight:700;padding:2px 6px;border-radius:10px;white-space:nowrap}
+.h-ok{background:#14532d;color:#4ade80} .h-warn{background:#451a03;color:#fb923c}
+.h-open{background:#7f1d1d;color:#f87171} .h-half{background:#2d1a00;color:#fbbf24}
+.mc-bars{margin-top:4px}
+.bar-row{display:flex;justify-content:space-between;font-size:9px;color:#475569;margin-bottom:2px}
+.bar-track{height:3px;background:#1e2235;border-radius:2px;overflow:hidden}
+.bar-fill{height:100%;border-radius:2px;transition:width .4s}
+.t1-fill{background:#22c55e} .t2-fill{background:#3b82f6}
+.t3-fill{background:#a855f7} .t4-fill{background:#ef4444}
+.fo-chain{margin-top:6px;display:flex;flex-wrap:wrap;gap:3px}
+.fo-tag{font-size:9px;padding:1px 5px;border-radius:4px;
+  background:#1a2035;border:1px solid #252a40;color:#64748b}
+
+/* stats box */
+.stats-box{margin:3px 8px 8px;padding:9px 11px;border-radius:8px;
+  border:1px solid #1e2235;background:#0b0d14}
+.stats-row{display:flex;justify-content:space-between;font-size:10px;
+  color:#64748b;padding:2px 0;border-bottom:1px solid #1a1e2c}
+.stats-row:last-child{border-bottom:none}
+.stats-val{font-weight:700;color:#e2e8f0}
+
+/* ── Main area ───────────────────────────────────────────────────────── */
+.main{grid-area:main;display:flex;flex-direction:column;overflow:hidden}
+
+/* tabs */
+.tab-bar{display:flex;padding:0 18px;background:#0f1220;
+  border-bottom:1px solid #1e2235;gap:2px;flex-shrink:0}
+.tab-btn{padding:10px 14px;font-size:12px;font-weight:600;color:#475569;
+  background:none;border-bottom:2px solid transparent;transition:all .2s}
+.tab-btn.active{color:#60a5fa;border-bottom-color:#3b82f6}
+
+/* tab panes */
+.tab-pane{display:none;flex:1;overflow:hidden}
+.tab-pane.active{display:flex;flex-direction:column;overflow:hidden}
+
+/* ── CHAT tab ────────────────────────────────────────────────────────── */
+.thread{flex:1;overflow-y:auto;padding:18px 20px;display:flex;flex-direction:column;gap:16px}
+
+/* welcome */
+.welcome{text-align:center;padding:32px 16px;max-width:520px;margin:auto}
+.welcome h2{font-size:17px;font-weight:700;margin-bottom:8px}
+.welcome p{font-size:12px;color:#475569;margin-bottom:14px}
+.chips{display:flex;flex-direction:column;gap:5px;align-items:center}
+.chip{background:#12151f;border:1px solid #1e2235;border-radius:16px;
+  padding:5px 14px;font-size:11px;color:#94a3b8;cursor:pointer;
+  transition:border-color .2s,color .2s}
+.chip:hover{border-color:#3b82f6;color:#60a5fa}
+
+/* message bubbles */
+.msg-user{align-self:flex-end;max-width:65%;background:#1a2035;
+  border:1px solid #252a40;border-radius:12px 12px 3px 12px;padding:10px 14px;
+  font-size:13px;color:#e2e8f0;line-height:1.5}
+.msg-assistant{align-self:flex-start;max-width:90%;display:flex;flex-direction:column;gap:8px}
+
+/* routing card */
+.routing-card{background:#0f1220;border:1px solid #1e2235;border-radius:10px;overflow:hidden}
+.rc-header{padding:9px 13px;background:#12151f;border-bottom:1px solid #1e2235;
+  display:flex;align-items:center;justify-content:space-between}
+.rc-title{font-size:11px;font-weight:700;color:#94a3b8}
+.rc-ms{font-size:10px;color:#475569}
+.rc-body{padding:0}
+.subtask-row{padding:10px 13px;border-bottom:1px solid #1a1e2c;display:flex;flex-direction:column;gap:6px}
+.subtask-row:last-child{border-bottom:none}
+.st-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.type-badge{font-size:9px;font-weight:700;padding:2px 7px;border-radius:4px;
+  background:#1a2035;border:1px solid #252a40;color:#94a3b8;white-space:nowrap}
+.st-model{font-size:10px;color:#64748b}
+.fo-badge{font-size:9px;font-weight:700;padding:2px 6px;border-radius:4px;
+  background:#451a03;border:1px solid #7c2d12;color:#fb923c}
+.st-metrics{display:flex;gap:10px;flex-wrap:wrap}
+.metric{display:flex;flex-direction:column;font-size:9px}
+.metric-label{color:#475569}
+.metric-val{font-weight:700;color:#e2e8f0}
+.metric-val.dyn{color:#a78bfa}
+.cplx-bar{height:3px;border-radius:2px;margin-top:6px;background:#1e2235;overflow:hidden}
+.cplx-fill{height:100%;border-radius:2px;background:linear-gradient(90deg,#3b82f6,#8b5cf6)}
+
+/* response tabs */
+.resp-tabs{display:flex;padding:0 13px;border-bottom:1px solid #1a1e2c;
+  background:#0b0d14;gap:2px}
+.resp-tab{font-size:10px;font-weight:600;padding:6px 10px;color:#475569;
+  background:none;border-bottom:2px solid transparent}
+.resp-tab.active{color:#60a5fa;border-bottom-color:#3b82f6}
+.resp-body{padding:12px 13px;font-size:12px;color:#94a3b8;
+  white-space:pre-wrap;word-break:break-word;line-height:1.65;max-height:260px;overflow-y:auto}
+.merged-body{padding:12px 13px;font-size:12px;color:#94a3b8;
+  white-space:pre-wrap;word-break:break-word;line-height:1.65;max-height:300px;overflow-y:auto}
+
+/* spinner */
+.spinner-row{display:flex;align-items:center;gap:10px;padding:8px 0;color:#475569;font-size:12px}
+.spinner{width:16px;height:16px;border:2px solid #1e2235;
+  border-top-color:#3b82f6;border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* input bar */
+.input-bar{padding:14px 18px;border-top:1px solid #1e2235;background:#0f1220;flex-shrink:0}
+.input-wrap{display:flex;gap:8px;background:#12151f;border:1px solid #1e2235;
+  border-radius:10px;padding:8px 10px;align-items:flex-end;
+  transition:border-color .2s}
+.input-wrap:focus-within{border-color:#3b82f6}
+.prompt-ta{flex:1;background:none;color:#e2e8f0;font-size:13px;
+  resize:none;min-height:36px;max-height:120px;padding:2px 4px;
+  font-family:inherit;line-height:1.5}
+.send-btn{background:#1d4ed8;color:#fff;border-radius:7px;
+  padding:6px 14px;font-size:12px;font-weight:600;flex-shrink:0;
+  transition:background .2s;align-self:flex-end}
+.send-btn:hover{background:#2563eb}
+.send-btn:disabled{background:#1e3a5f;color:#475569;cursor:not-allowed}
+
+/* ── DASHBOARD tab ───────────────────────────────────────────────────── */
+.dashboard{flex:1;overflow-y:auto;padding:16px 18px;display:grid;gap:14px;
+  grid-template-columns:1fr 1fr;
+  grid-template-rows:auto}
+.dash-card{background:#0f1220;border:1px solid #1e2235;border-radius:10px;overflow:hidden}
+.dash-head{padding:9px 13px;background:#12151f;border-bottom:1px solid #1e2235;
+  font-size:11px;font-weight:700;color:#94a3b8;display:flex;align-items:center;justify-content:space-between}
+.dash-body{padding:12px 13px}
+canvas{max-height:200px}
+.threshold-grid{display:grid;gap:8px}
+.th-row{display:flex;align-items:center;gap:8px}
+.th-label{font-size:10px;color:#64748b;width:110px;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.th-bar-track{flex:1;height:6px;background:#1e2235;border-radius:3px;overflow:hidden}
+.th-bar-fill{height:100%;border-radius:3px;background:linear-gradient(90deg,#3b82f6,#8b5cf6);transition:width .5s}
+.th-val{font-size:10px;font-weight:700;color:#a78bfa;width:36px;text-align:right}
+
+/* ── EVENTS tab ──────────────────────────────────────────────────────── */
+.events-list{flex:1;overflow-y:auto;padding:12px 14px;display:flex;flex-direction:column;gap:6px}
+.event-row{padding:7px 11px;border-radius:7px;border:1px solid #1e2235;
+  background:#0b0d14;display:flex;flex-direction:column;gap:2px}
+.ev-type{font-size:9px;font-weight:700;padding:1px 6px;border-radius:4px;
+  display:inline-block;width:fit-content}
+.ev-routing_plan{background:#1a2a4a;color:#60a5fa}
+.ev-subtask_start{background:#1a2f1a;color:#4ade80}
+.ev-subtask_complete{background:#2d1b3d;color:#c084fc}
+.ev-threshold_update{background:#2d2000;color:#fbbf24}
+.ev-request_complete{background:#1a2a4a;color:#34d399}
+.ev-heartbeat{background:#1e2235;color:#475569}
+.ev-failover{background:#451a03;color:#fb923c}
+.ev-detail{font-size:10px;color:#64748b;margin-top:1px}
+
+/* Responsive single-column on narrow */
+@media(max-width:900px){
+  .shell{grid-template-columns:1fr;grid-template-areas:"topbar" "main"}
+  .sidebar{display:none}
+  .dashboard{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+<div class="shell">
+
+<!-- ── TOP BAR ─────────────────────────────────────────────────────────── -->
+<header class="topbar">
+  <div class="brand">
+    <span>routing-v4</span>
+    <span class="brand-badge">ADVANCED</span>
+  </div>
+  <div style="display:flex;align-items:center;gap:7px;margin-left:18px">
+    <span class="ws-dot" id="wsDot"></span>
+    <span class="ws-label" id="wsLabel">connecting…</span>
+  </div>
+  <div class="topbar-right">
+    <label class="dry-toggle">
+      <input type="checkbox" id="dryRun"/>
+      <span>Dry-run (no LLM calls)</span>
+    </label>
+  </div>
+</header>
+
+<!-- ── SIDEBAR ─────────────────────────────────────────────────────────── -->
+<aside class="sidebar">
+  <div class="sec-head">Model Registry</div>
+  <div id="modelCards"></div>
+  <div class="sec-head" style="margin-top:6px">Session Stats</div>
+  <div id="statsBox" class="stats-box" style="margin-bottom:8px">
+    <div class="stats-row"><span>Total calls</span><span class="stats-val" id="s-calls">—</span></div>
+    <div class="stats-row"><span>Avg latency</span><span class="stats-val" id="s-lat">—</span></div>
+    <div class="stats-row"><span>Avg quality</span><span class="stats-val" id="s-qual">—</span></div>
+    <div class="stats-row"><span>Total cost</span><span class="stats-val" id="s-cost">—</span></div>
+    <div class="stats-row"><span>Failovers</span><span class="stats-val" id="s-fo">—</span></div>
+  </div>
+</aside>
+
+<!-- ── MAIN ────────────────────────────────────────────────────────────── -->
+<main class="main">
+  <!-- Tab bar -->
+  <div class="tab-bar">
+    <button class="tab-btn active" data-tab="chat">💬 Chat</button>
+    <button class="tab-btn" data-tab="dashboard">📊 Dashboard</button>
+    <button class="tab-btn" data-tab="events">⚡ Events</button>
+  </div>
+
+  <!-- ── CHAT ─────────────────────────────────────────────────────────── -->
+  <div class="tab-pane active" id="tab-chat" style="display:flex;flex-direction:column;overflow:hidden">
+    <div class="thread" id="thread">
+      <div class="welcome" id="welcome">
+        <div style="font-size:32px;margin-bottom:10px">🧠</div>
+        <h2>Multi-LLM Adaptive Router</h2>
+        <p>Advanced failovers · Dynamic thresholds · Real-time telemetry</p>
+        <div class="chips">
+          <div class="chip" onclick="setPrompt(this)">Implement an OAuth2 middleware AND write the API reference documentation</div>
+          <div class="chip" onclick="setPrompt(this)">Review this auth code for security vulnerabilities</div>
+          <div class="chip" onclick="setPrompt(this)">Summarise the trade-offs between microservices and a monolith AND design a migration plan</div>
+          <div class="chip" onclick="setPrompt(this)">What is exponential backoff?</div>
+        </div>
+      </div>
+    </div>
+    <div class="input-bar">
+      <div class="input-wrap">
+        <textarea class="prompt-ta" id="promptInput" rows="1"
+          placeholder="Ask anything — compound prompts split automatically…"
+          onkeydown="handleKey(event)"></textarea>
+        <button class="send-btn" id="sendBtn" onclick="sendPrompt()">Send</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── DASHBOARD ─────────────────────────────────────────────────────── -->
+  <div class="tab-pane" id="tab-dashboard">
+    <div class="dashboard">
+
+      <div class="dash-card" style="grid-column:1/3">
+        <div class="dash-head">
+          <span>⏱ Latency Timeline  <span style="font-weight:400;color:#475569">(ms per sub-task)</span></span>
+          <span id="latChart-n" style="font-size:10px;color:#475569"></span>
+        </div>
+        <div class="dash-body"><canvas id="latChart"></canvas></div>
+      </div>
+
+      <div class="dash-card">
+        <div class="dash-head">📊 Tier Distribution</div>
+        <div class="dash-body" style="display:flex;justify-content:center">
+          <canvas id="tierChart" style="max-width:180px"></canvas>
+        </div>
+      </div>
+
+      <div class="dash-card">
+        <div class="dash-head">🏥 Model Health Scores</div>
+        <div class="dash-body"><canvas id="healthChart"></canvas></div>
+      </div>
+
+      <div class="dash-card" style="grid-column:1/3">
+        <div class="dash-head">
+          <span>🎛 Dynamic Thresholds  <span style="font-weight:400;color:#a78bfa">auto-adjusted by telemetry EMA</span></span>
+        </div>
+        <div class="dash-body">
+          <div class="threshold-grid" id="thresholdGrid">
+            <div style="font-size:11px;color:#475569;text-align:center;padding:8px">
+              No telemetry yet — send a prompt to populate
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ── EVENTS ─────────────────────────────────────────────────────────── -->
+  <div class="tab-pane" id="tab-events">
+    <div class="events-list" id="eventList">
+      <div style="font-size:11px;color:#475569;text-align:center;padding:24px">
+        Waiting for WebSocket events…
+      </div>
+    </div>
+  </div>
+
+</main>
+</div>
+
+<script>
+// ── State ──────────────────────────────────────────────────────────────────
+let ws = null;
+let wsReady = false;
+let models = [];
+let dynParams = [];
+let stats = {};
+let latHistory = [];   // {label, ms, tier}
+let tierCounts = {1:0,2:0,3:0,4:0};
+let healthData = {};   // label → health_score
+let activeRespTab = {};
+
+const TIER_COLORS = ['#22c55e','#3b82f6','#a855f7','#ef4444'];
+const TIER_BG     = ['#14532d','#1e3a5f','#3b1f5e','#7f1d1d'];
+
+// ── WebSocket ──────────────────────────────────────────────────────────────
+function connectWS() {
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+  ws = new WebSocket(`${proto}://${location.host}/ws/telemetry`);
+
+  ws.onopen = () => {
+    wsReady = true;
+    setWsDot('live', 'live');
+  };
+  ws.onclose = () => {
+    wsReady = false;
+    setWsDot('error', 'disconnected — retrying…');
+    setTimeout(connectWS, 3000);
+  };
+  ws.onerror = () => setWsDot('error', 'error');
+
+  ws.onmessage = (e) => {
+    const ev = JSON.parse(e.data);
+    handleEvent(ev);
+  };
+}
+
+function setWsDot(cls, label) {
+  const d = document.getElementById('wsDot');
+  d.className = 'ws-dot ' + cls;
+  document.getElementById('wsLabel').textContent = label;
+}
+
+// ── Event dispatcher ──────────────────────────────────────────────────────
+function handleEvent(ev) {
+  pushEventLog(ev);
+  switch(ev.type) {
+    case 'init':
+      models = ev.models || [];
+      dynParams = ev.dynamic_params || [];
+      stats = ev.stats || {};
+      renderModels();
+      renderStats();
+      updateDynThresholds();
+      break;
+    case 'heartbeat':
+      // Update health from heartbeat
+      (ev.health||[]).forEach(h => healthData[h.label] = h.health_score);
+      stats = ev.stats || stats;
+      dynParams = ev.dyn_params || dynParams;
+      renderStats();
+      renderHealthChart();
+      updateDynThresholds();
+      updateModelHealthPills(ev.health||[]);
+      break;
+    case 'routing_plan':
+      // nothing extra — the pending spinner is already shown
+      break;
+    case 'subtask_start':
+      updateSubtaskSpinner(ev.key, ev.task_type, ev.model, ev.provider, ev.failover);
+      break;
+    case 'subtask_complete':
+      (ev.health||[]).forEach(h => healthData[h.label] = h.health_score);
+      updateModelHealthPills(ev.health||[]);
+      // record latency
+      latHistory.push({
+        label: ev.task_type + ' / ' + ev.model.replace('model::',''),
+        ms: ev.latency_ms,
+        tier: ev.tier
+      });
+      if(latHistory.length > 40) latHistory.shift();
+      tierCounts[ev.tier] = (tierCounts[ev.tier]||0)+1;
+      updateCharts();
+      break;
+    case 'threshold_update':
+      if(ev.params) {
+        // upsert into dynParams
+        const idx = dynParams.findIndex(
+          p => p.model_label===ev.params.model_label && p.task_type===ev.params.task_type
+        );
+        if(idx>=0) dynParams[idx]=ev.params; else dynParams.push(ev.params);
+        updateDynThresholds();
+      }
+      break;
+    case 'request_complete':
+      // handled by HTTP response
+      break;
+  }
+}
+
+// ── Chat UI ────────────────────────────────────────────────────────────────
+function setPrompt(el) {
+  document.getElementById('promptInput').value = el.textContent.trim();
+  document.getElementById('promptInput').focus();
+  hideWelcome();
+}
+
+function hideWelcome() {
+  const w = document.getElementById('welcome');
+  if(w) w.style.display = 'none';
+}
+
+function handleKey(e) {
+  if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); sendPrompt(); }
+}
+
+async function sendPrompt() {
+  const ta = document.getElementById('promptInput');
+  const prompt = ta.value.trim();
+  if(!prompt) return;
+  hideWelcome();
+  ta.value = '';
+  ta.style.height = 'auto';
+
+  const btn = document.getElementById('sendBtn');
+  btn.disabled = true;
+
+  // User bubble
+  appendUserMsg(prompt);
+
+  // Assistant placeholder
+  const assistantId = 'msg-' + Date.now();
+  appendAssistantPlaceholder(assistantId);
+
+  const dry = document.getElementById('dryRun').checked;
+  try {
+    const resp = await fetch('/api/chat', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({prompt, dry_run: dry})
+    });
+    const data = await resp.json();
+    renderAssistantResult(assistantId, data);
+  } catch(err) {
+    renderError(assistantId, err.toString());
+  } finally {
+    btn.disabled = false;
+    // refresh stats
+    fetch('/api/stats').then(r=>r.json()).then(s=>{stats=s;renderStats()});
+  }
+}
+
+function appendUserMsg(text) {
+  const thread = document.getElementById('thread');
+  const el = document.createElement('div');
+  el.className = 'msg-user';
+  el.textContent = text;
+  thread.appendChild(el);
+  thread.scrollTop = thread.scrollHeight;
+}
+
+function appendAssistantPlaceholder(id) {
+  const thread = document.getElementById('thread');
+  const el = document.createElement('div');
+  el.className = 'msg-assistant';
+  el.id = id;
+  el.innerHTML = `
+    <div class="routing-card">
+      <div class="rc-header">
+        <span class="rc-title">🔄 Routing & executing…</span>
+      </div>
+      <div class="rc-body" id="${id}-tasks">
+        <div class="spinner-row"><div class="spinner"></div><span>Splitting and classifying prompt…</span></div>
+      </div>
+    </div>`;
+  thread.appendChild(el);
+  thread.scrollTop = thread.scrollHeight;
+}
+
+function updateSubtaskSpinner(key, taskType, model, provider, failover) {
+  // Find any open placeholder and add a per-subtask spinner
+  const allCards = document.querySelectorAll('[id$="-tasks"]');
+  if(!allCards.length) return;
+  const container = allCards[allCards.length-1];
+  // Clear generic spinner on first subtask
+  const existing = container.querySelector('.spinner-row');
+  const spinId = 'spin-'+key+'-'+Date.now();
+  const fo = failover ? `<span class="fo-badge">⚡ failover→${failover.replace('model::','')}</span>` : '';
+  const html = `<div class="spinner-row" id="${spinId}">
+    <div class="spinner"></div>
+    <span>${taskType} → <b>${model.replace('model::','')}</b> [${provider}] ${fo}</span>
+  </div>`;
+  if(existing) existing.outerHTML = html;
+  else container.insertAdjacentHTML('beforeend', html);
+}
+
+function renderAssistantResult(id, data) {
+  const el = document.getElementById(id);
+  if(!el) return;
+  const subTasks = data.sub_tasks || [];
+  const totalMs = data.total_ms;
+  const dryRun  = data.dry_run;
+
+  // Build routing card HTML
+  let tasksHtml = '';
+  subTasks.forEach((st, i) => {
+    const tierN = tierNumber(st.model);
+    const tierCls = 't'+tierN;
+    const cplxPct = Math.round((st.complexity||0)*100);
+    const foHtml = st.failover_used
+      ? `<span class="fo-badge">⚡ failover: ${(st.failover_from||'').replace('model::','')} → ${st.model.replace('model::','')}</span>`
+      : '';
+
+    const metricsHtml = dryRun ? `
+      <div class="st-metrics">
+        <div class="metric"><span class="metric-label">Dyn Threshold</span><span class="metric-val dyn">${fmtF(st.dyn_threshold)}</span></div>
+        <div class="metric"><span class="metric-label">Dyn Cost-W</span><span class="metric-val dyn">${fmtF(st.dyn_cost_weight)}</span></div>
+        <div class="metric"><span class="metric-label">Quality (static)</span><span class="metric-val">${fmtF(st.quality)}</span></div>
+        <div class="metric"><span class="metric-label">Utility U</span><span class="metric-val">${fmtF(st.utility)}</span></div>
+      </div>` : `
+      <div class="st-metrics">
+        <div class="metric"><span class="metric-label">Latency</span><span class="metric-val">${st.latency_ms} ms</span></div>
+        <div class="metric"><span class="metric-label">Tokens</span><span class="metric-val">${st.out_tokens||0}</span></div>
+        <div class="metric"><span class="metric-label">Cost</span><span class="metric-val">${fmtC(st.cost_units)}</span></div>
+        <div class="metric"><span class="metric-label">Quality Q</span><span class="metric-val">${fmtF(st.quality)}</span></div>
+        <div class="metric"><span class="metric-label">Utility U</span><span class="metric-val">${fmtF(st.utility)}</span></div>
+        <div class="metric"><span class="metric-label">Dyn Thr</span><span class="metric-val dyn">${fmtF(st.dyn_threshold)}</span></div>
+        <div class="metric"><span class="metric-label">Dyn Cost-W</span><span class="metric-val dyn">${fmtF(st.dyn_cost_weight)}</span></div>
+      </div>`;
+
+    const respId = id+'resp'+i;
+    activeRespTab[respId] = 'resp';
+    const respHtml = dryRun ? '' : `
+      <div class="resp-tabs">
+        <button class="resp-tab active" onclick="showResp('${respId}','resp',this)">Response</button>
+        <button class="resp-tab" onclick="showResp('${respId}','meta',this)">Metadata</button>
+      </div>
+      <div id="${respId}-resp" class="resp-body">${escHtml(st.response||'')}</div>
+      <div id="${respId}-meta" class="resp-body" style="display:none">${metaHtml(st)}</div>`;
+
+    tasksHtml += `
+      <div class="subtask-row">
+        <div class="st-top">
+          <div class="tier-badge ${tierCls}">T${tierN}</div>
+          <span class="type-badge">${st.task_type}</span>
+          <span class="st-model">${st.model} [${st.provider||''}]</span>
+          ${foHtml}
+        </div>
+        ${metricsHtml}
+        <div class="cplx-bar"><div class="cplx-fill" style="width:${cplxPct}%"></div></div>
+        ${respHtml}
+      </div>`;
+  });
+
+  // Merged response tab (live mode only)
+  let mergedHtml = '';
+  if(!dryRun && data.merged) {
+    const mId = id+'-merged';
+    mergedHtml = `
+      <div class="resp-tabs">
+        <button class="resp-tab active">🔀 Merged Response</button>
+      </div>
+      <div class="merged-body">${escHtml(data.merged)}</div>`;
+  }
+
+  el.innerHTML = `
+    <div class="routing-card">
+      <div class="rc-header">
+        <span class="rc-title">✅ Routing complete${dryRun?' (dry-run)':''}</span>
+        <span class="rc-ms">${totalMs ? totalMs+' ms total' : ''}</span>
+      </div>
+      <div class="rc-body">${tasksHtml}</div>
+    </div>
+    ${mergedHtml ? `<div class="routing-card">${mergedHtml}</div>` : ''}`;
+
+  const thread = document.getElementById('thread');
+  thread.scrollTop = thread.scrollHeight;
+}
+
+function showResp(baseId, which, btn) {
+  document.getElementById(baseId+'-resp').style.display = which==='resp'?'':'none';
+  document.getElementById(baseId+'-meta').style.display = which==='meta'?'':'none';
+  btn.parentElement.querySelectorAll('.resp-tab').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+function metaHtml(st) {
+  return JSON.stringify({
+    model: st.model,
+    provider: st.provider,
+    ollama_model: st.ollama_model,
+    tier: st.tier,
+    complexity: st.complexity,
+    quality_threshold: st.threshold,
+    dyn_threshold: st.dyn_threshold,
+    dyn_cost_weight: st.dyn_cost_weight,
+    utility: st.utility,
+    failover_used: st.failover_used,
+    failover_from: st.failover_from,
+    failover_reason: st.failover_reason,
+  }, null, 2);
+}
+
+function renderError(id, msg) {
+  const el = document.getElementById(id);
+  if(el) el.innerHTML = `<div style="color:#f87171;font-size:12px;padding:8px">${msg}</div>`;
+}
+
+// ── Sidebar rendering ──────────────────────────────────────────────────────
+function renderModels() {
+  const c = document.getElementById('modelCards');
+  c.innerHTML = models.map(m => {
+    const tierN  = m.tier;
+    const qLow   = m.quality_at_low||0;
+    const qHigh  = m.quality_at_high||0;
+    const health  = m.health||{};
+    const hs     = health.health_score != null ? health.health_score : 1;
+    const state  = health.state||'CLOSED';
+    const pillCls = state==='OPEN' ? 'h-open' : state==='HALF_OPEN' ? 'h-half' : hs < 0.5 ? 'h-warn' : 'h-ok';
+    const foChain = (m.failover_chain||[]).map(f=>`<span class="fo-tag">→${f.replace('model::','')}</span>`).join('');
+    return `<div class="model-card" id="mc-${m.label.replace(/:/g,'-')}">
+      <div class="mc-top">
+        <div class="tier-badge t${tierN}">T${tierN}</div>
+        <div class="mc-info">
+          <div class="mc-name">${m.provider}</div>
+          <div class="mc-prov">${m.label}</div>
+        </div>
+        <span class="health-pill ${pillCls}" id="hp-${m.label.replace(/:/g,'-')}">${state}</span>
+      </div>
+      <div class="mc-bars">
+        <div class="bar-row"><span>Q low</span><span>${fmtF(qLow)}</span></div>
+        <div class="bar-track"><div class="bar-fill t${tierN}-fill" style="width:${Math.round(qLow*100)}%"></div></div>
+        <div class="bar-row" style="margin-top:4px"><span>Q high</span><span>${fmtF(qHigh)}</span></div>
+        <div class="bar-track"><div class="bar-fill t${tierN}-fill" style="width:${Math.round(qHigh*100)}%"></div></div>
+        <div class="bar-row" style="margin-top:4px"><span>Health</span><span id="hv-${m.label.replace(/:/g,'-')}">${fmtF(hs)}</span></div>
+        <div class="bar-track"><div class="bar-fill t${tierN}-fill" id="hb-${m.label.replace(/:/g,'-')}" style="width:${Math.round(hs*100)}%"></div></div>
+      </div>
+      ${foChain ? `<div class="fo-chain">${foChain}</div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+function updateModelHealthPills(healthArr) {
+  healthArr.forEach(h => {
+    const key = h.label.replace(/:/g,'-');
+    const pill = document.getElementById('hp-'+key);
+    const val  = document.getElementById('hv-'+key);
+    const bar  = document.getElementById('hb-'+key);
+    const hs   = h.health_score != null ? h.health_score : 1;
+    const state = h.state||'CLOSED';
+    if(pill) {
+      pill.textContent = state;
+      const pillCls = state==='OPEN'?'h-open':state==='HALF_OPEN'?'h-half':hs<0.5?'h-warn':'h-ok';
+      pill.className = 'health-pill '+pillCls;
+    }
+    if(val) val.textContent = fmtF(hs);
+    if(bar) bar.style.width = Math.round(hs*100)+'%';
+    healthData[h.label] = hs;
+  });
+}
+
+function renderStats() {
+  if(!stats || !stats.total_calls) return;
+  setText('s-calls', stats.total_calls);
+  setText('s-lat', (stats.avg_latency_ms||0)+' ms');
+  setText('s-qual', fmtF(stats.avg_quality));
+  setText('s-cost', fmtC(stats.total_cost));
+  setText('s-fo', stats.failover_count||0);
+}
+
+// ── Charts ──────────────────────────────────────────────────────────────────
+let latChart = null, tierChart = null, healthChart = null;
+
+function initCharts() {
+  const chartDefaults = {
+    responsive: true, maintainAspectRatio: true,
+    plugins: { legend: { labels: { color:'#64748b', font:{size:10} } } },
+    scales: {
+      x: { ticks:{color:'#475569',font:{size:9}}, grid:{color:'#1e2235'} },
+      y: { ticks:{color:'#475569',font:{size:9}}, grid:{color:'#1e2235'} }
+    }
+  };
+
+  // Latency timeline
+  latChart = new Chart(document.getElementById('latChart').getContext('2d'), {
+    type: 'bar',
+    data: { labels:[], datasets:[{
+      label:'Latency (ms)', data:[], backgroundColor:[], borderRadius:4,
+    }]},
+    options: {
+      ...chartDefaults,
+      plugins:{...chartDefaults.plugins, legend:{display:false}},
+      scales:{
+        x:{ticks:{color:'#475569',font:{size:8},maxRotation:35},grid:{color:'#1e2235'}},
+        y:{ticks:{color:'#475569',font:{size:9}},grid:{color:'#1e2235'}}
+      }
+    }
+  });
+
+  // Tier distribution
+  tierChart = new Chart(document.getElementById('tierChart').getContext('2d'), {
+    type: 'doughnut',
+    data: {
+      labels:['T1 Light','T2 Medium','T3 Balanced','T4 Heavy'],
+      datasets:[{data:[0,0,0,0], backgroundColor:TIER_COLORS, borderColor:'#0b0d14', borderWidth:3}]
+    },
+    options: {
+      responsive:true, maintainAspectRatio:true,
+      cutout:'60%',
+      plugins:{legend:{position:'right', labels:{color:'#64748b',font:{size:10}, boxWidth:10}}}
+    }
+  });
+
+  // Health bar chart
+  healthChart = new Chart(document.getElementById('healthChart').getContext('2d'), {
+    type: 'bar',
+    data: {
+      labels:[],
+      datasets:[{
+        label:'Health Score', data:[], backgroundColor:TIER_COLORS,
+        borderRadius:4
+      }]
+    },
+    options: {
+      indexAxis:'y',
+      responsive:true, maintainAspectRatio:true,
+      plugins:{legend:{display:false}},
+      scales:{
+        x:{min:0,max:1, ticks:{color:'#475569',font:{size:9}},grid:{color:'#1e2235'}},
+        y:{ticks:{color:'#64748b',font:{size:9}},grid:{color:'#1e2235'}}
+      }
+    }
+  });
+}
+
+function updateCharts() {
+  if(!latChart) return;
+  // Latency
+  latChart.data.labels = latHistory.map(h=>h.label);
+  latChart.data.datasets[0].data = latHistory.map(h=>h.ms);
+  latChart.data.datasets[0].backgroundColor = latHistory.map(h=>TIER_COLORS[h.tier-1]||'#60a5fa');
+  latChart.update('none');
+  document.getElementById('latChart-n').textContent = latHistory.length+' calls';
+
+  // Tier
+  tierChart.data.datasets[0].data = [tierCounts[1]||0,tierCounts[2]||0,tierCounts[3]||0,tierCounts[4]||0];
+  tierChart.update('none');
+
+  // Health
+  renderHealthChart();
+}
+
+function renderHealthChart() {
+  if(!healthChart || !models.length) return;
+  const labels = models.map(m=>m.provider||m.label);
+  const data   = models.map(m=>healthData[m.label] != null ? healthData[m.label] : 1.0);
+  const colors = models.map(m=>TIER_COLORS[m.tier-1]||'#60a5fa');
+  healthChart.data.labels = labels;
+  healthChart.data.datasets[0].data = data;
+  healthChart.data.datasets[0].backgroundColor = colors;
+  healthChart.update('none');
+}
+
+// ── Dynamic Thresholds ──────────────────────────────────────────────────────
+function updateDynThresholds() {
+  const grid = document.getElementById('thresholdGrid');
+  if(!dynParams || !dynParams.length) return;
+  grid.innerHTML = dynParams.map(p => {
+    const pct = Math.round((p.quality_threshold||0)*100);
+    const label = (p.model_label||'').replace('model::','') + ' / ' + (p.task_type||'');
+    return `<div class="th-row">
+      <span class="th-label" title="${label}">${label}</span>
+      <div class="th-bar-track"><div class="th-bar-fill" style="width:${pct}%"></div></div>
+      <span class="th-val">${fmtF(p.quality_threshold)}</span>
+    </div>`;
+  }).join('');
+}
+
+// ── Event log ──────────────────────────────────────────────────────────────
+const MAX_EVENTS = 120;
+let eventBuf = [];
+
+function pushEventLog(ev) {
+  if(ev.type==='heartbeat') return; // suppress noisy heartbeats from log
+  const list = document.getElementById('eventList');
+  if(!list) return;
+
+  // Remove placeholder
+  const ph = list.querySelector('div[style]');
+  if(ph && eventBuf.length===0) ph.remove();
+
+  const el = document.createElement('div');
+  el.className = 'event-row';
+  const typeCls = 'ev-'+(ev.type||'unknown');
+  let detail = '';
+  if(ev.type==='subtask_complete') {
+    detail = `${ev.task_type} → ${ev.model} | ${ev.latency_ms}ms | Q:${fmtF(ev.quality)} | dyn-thr:${fmtF(ev.dyn_threshold)}`;
+    if(ev.failover_used) detail += ` | ⚡ failover from ${ev.failover_from}`;
+  } else if(ev.type==='threshold_update' && ev.params) {
+    detail = `${ev.params.model_label}/${ev.params.task_type} → thr:${fmtF(ev.params.quality_threshold)} cw:${fmtF(ev.params.cost_weight)} ema:${fmtF(ev.params.quality_ema)}`;
+  } else if(ev.type==='routing_plan') {
+    detail = (ev.sub_tasks||[]).map(t=>`${t.task_type}→${t.model.replace('model::','')}`).join(', ');
+  } else if(ev.type==='request_complete') {
+    detail = `total: ${ev.total_ms} ms`;
+  } else if(ev.type==='subtask_start') {
+    detail = `${ev.task_type} → ${ev.model} [${ev.provider}]`;
+  }
+  el.innerHTML = `<span class="ev-type ${typeCls}">${ev.type}</span>
+    ${detail ? `<div class="ev-detail">${detail}</div>` : ''}`;
+
+  list.insertBefore(el, list.firstChild);
+  eventBuf.unshift(ev);
+  if(eventBuf.length > MAX_EVENTS) {
+    eventBuf.pop();
+    if(list.lastChild) list.removeChild(list.lastChild);
+  }
+}
+
+// ── Tabs ──────────────────────────────────────────────────────────────────
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+    document.querySelectorAll('.tab-pane').forEach(p=>{
+      p.classList.remove('active');
+      p.style.display='none';
+    });
+    btn.classList.add('active');
+    const pane = document.getElementById('tab-'+btn.dataset.tab);
+    if(pane){ pane.classList.add('active'); pane.style.display='flex'; }
+  });
+});
+
+// Auto-grow textarea
+document.getElementById('promptInput').addEventListener('input', function(){
+  this.style.height='auto';
+  this.style.height=Math.min(this.scrollHeight,120)+'px';
+});
+
+// ── Helpers ────────────────────────────────────────────────────────────────
+function tierNumber(label) {
+  if(label.includes('heavy'))    return 4;
+  if(label.includes('balanced')) return 3;
+  if(label.includes('medium'))   return 2;
+  return 1;
+}
+function fmtF(v){ return v != null ? Number(v).toFixed(3) : '—'; }
+function fmtC(v){ return v != null ? Number(v).toFixed(6) : '—'; }
+function escHtml(s){ const d=document.createElement('div'); d.textContent=s||''; return d.innerHTML; }
+function setText(id, val){ const el=document.getElementById(id); if(el) el.textContent=val; }
+
+// ── Bootstrap ─────────────────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', () => {
+  initCharts();
+  connectWS();
+  // Also pull initial model list via HTTP in case WS is slow
+  fetch('/api/models').then(r=>r.json()).then(data => {
+    if(!models.length){ models=data; renderModels(); }
+  });
+  fetch('/api/stats').then(r=>r.json()).then(s=>{ stats=s; renderStats(); });
+});
+</script>
+</body>
+</html>

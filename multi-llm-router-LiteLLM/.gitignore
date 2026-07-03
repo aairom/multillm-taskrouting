@@ -1,4 +1,8 @@
-# Python
+# ── Environment secrets ───────────────────────────────────────────────────────
+.env
+*.env.*
+
+# ── Python ────────────────────────────────────────────────────────────────────
 __pycache__/
 *.py[cod]
 *.pyo
@@ -8,27 +12,27 @@ dist/
 build/
 *.egg
 
-# Virtual environment
+# ── Virtual environments ──────────────────────────────────────────────────────
 .venv/
 venv/
 env/
 
-# Environment secrets
-.env
-
-# Folders starting with underscore (local data, sources, etc.)
+# ── Underscore-prefixed folders (local data, sources, images, docs) ───────────
 _*/
 
-# Output (keep directory, ignore content)
+# ── Output artefacts (keep dirs, ignore runtime files) ───────────────────────
 output/*.jsonl
 output/*.log
 output/*.json
+output/server.pid
 
-# Editor
+# ── Editor / OS ───────────────────────────────────────────────────────────────
 .DS_Store
 .idea/
 .vscode/
 *.swp
+*.swo
+Thumbs.db
 
-# Playwright MCP
+# ── Playwright MCP ───────────────────────────────────────────────────────────
 .playwright-mcp/

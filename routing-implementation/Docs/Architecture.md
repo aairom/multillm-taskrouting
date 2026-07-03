@@ -54,7 +54,7 @@ flowchart TD
 
 ## UI Component Map
 
-```
+```markdown
 ┌─────────────────────────────────────────────────────────────────┐
 │  Sidebar                │  Main                                  │
 │  ─────────────────────  │  ────────────────────────────────────  │
@@ -65,17 +65,17 @@ flowchart TD
 │   T4 Mistral AI         │   │  "Write API docs AND OAuth2"   │   │
 │                         │   └────────────────────────────────┘   │
 │  Formula                │   ┌─ Routing Card ─────────────────┐   │
-│  U = 0.60·Q − 0.40·C   │   │  🔀 2 sub-tasks detected       │   │
+│  U = 0.60·Q − 0.40·C   │   │  🔀 2 sub-tasks detected       │    │
 │                         │   │  ┌ documentation  T1 Granite ┐ │   │
-│  Session Stats          │   │  │ complexity 26% Q 64% U+0.36│ │   │
-│   Total calls           │   │  └────────────────────────────┘ │   │
+│  Session Stats          │   │  │ complexity 26% Q 64% U+0.36│ │  │
+│   Total calls           │   │  └────────────────────────────┘ │  │
 │   Avg quality           │   │  ┌ code_generation T3 Gemma  ┐ │   │
-│   Total cost            │   │  │ complexity 61% Q 85% U+0.37│ │   │
-│                         │   │  └────────────────────────────┘ │   │
+│   Total cost            │   │  │ complexity 61% Q 85% U+0.37│ │  │
+│                         │   │  └────────────────────────────┘ │  │
 │                         │   └────────────────────────────────┘   │
 │                         │   ┌─ Response Card ─────────────────┐  │
 │                         │   │ [T1 documentation][T3 code][⊞]  │  │
-│                         │   │  📡 IBM Granite  ⏱ 312ms  📝 214│  │
+│                         │   │  📡 IBM Granite  ⏱ 312ms  📝 214│ │
 │                         │   │  <rendered markdown response>   │  │
 │                         │   └────────────────────────────────┘   │
 │                         │                                        │
